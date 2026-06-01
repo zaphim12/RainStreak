@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RainStreak</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fall {
+      from { transform: translateY(-80px); }
+      to   { transform: translateY(110vh); }
+    }
+    .drop {
+      position: fixed; top: 0; width: 1.5px; border-radius: 999px;
+      background: linear-gradient(to bottom, transparent, #7dd3fc);
+      animation: fall linear infinite; pointer-events: none; will-change: transform;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen text-white" style="background: linear-gradient(135deg, #0c1624 0%, #0d2136 50%, #0c1624 100%);">
+
+  <div id="rain" class="fixed inset-0 z-0 pointer-events-none overflow-hidden"></div>
+
+  <div class="relative z-10 min-h-screen flex flex-col items-center px-4 pt-12 pb-24">
+
+    <header class="text-center mb-10 select-none">
+      <div class="text-6xl mb-3">🌧️</div>
+      <h1 class="text-5xl font-black tracking-tight" style="color: #7dd3fc;">RainStreak</h1>
+      <p class="mt-2 text-slate-400">How many days in a row has it rained near you?</p>
+    </header>
+
+    <form id="form" class="w-full max-w-xs mb-8 flex gap-2">
+      <input id="zip" type="text" inputmode="numeric" maxlength="5"
+        placeholder="Zip code (e.g. 98101)"
+        class="flex-1 min-w-0 rounded-full px-5 py-3 text-center text-lg tracking-widest
+               bg-white/10 border border-white/20 placeholder-slate-500 text-white
+               focus:outline-none focus:border-sky-400 focus:bg-white/15 transition-all backdrop-blur-sm" />
+      <button type="submit"
+        class="rounded-full px-5 py-3 font-bold transition-all active:scale-95
+               bg-sky-500 hover:bg-sky-400 shadow-lg shadow-sky-900/50">Go</button>
+    </form>
+
+    <div id="result" class="w-full max-w-xs mb-10"></div>
+
+    <div class="w-full max-w-lg">
+      <h2 class="text-xl font-bold mb-3">🏆 Top Rain Streaks</h2>
+      <div id="board" class="rounded-2xl border border-white/10 overflow-hidden"
+           style="background: rgba(255,255,255,0.04); backdrop-filter: blur(8px);">
+        <div class="text-center text-slate-500 text-sm py-10">Fetching leaderboard data…</div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const fmtTs = iso => new Date(iso).toLocaleString(undefined, {
+  month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+});
+
+function showLoading() {
+  document.getElementById('result').innerHTML = `
+    <div class="flex justify-center items-center gap-2 py-6 text-slate-400 text-sm">
+      <svg class="animate-spin w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"
+                stroke-dasharray="55" stroke-dashoffset="20"/>
+      </svg>
+      Looking up streak…
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('result').innerHTML = `
+    <div class="rounded-2xl border border-red-500/30 px-5 py-4 text-sm text-red-300 text-center"
+         style="background:rgba(239,68,68,0.08);">${msg}</div>`;
+}
+
+function showCard(d) {
+  const wet  = d.streak > 0;
+  const col  = wet ? '#7dd3fc' : '#fcd34d';
+  const bc   = wet ? 'rgba(56,189,248,0.2)'  : 'rgba(252,211,77,0.2)';
+  const bg   = wet ? 'rgba(56,189,248,0.07)' : 'rgba(252,211,77,0.07)';
+  const icon = wet ? '💧' : '☀️';
+  document.getElementById('result').innerHTML = `
+    <div class="rounded-2xl border px-6 py-7 text-center shadow-xl"
+         style="border-color:${bc}; background:${bg}; backdrop-filter:blur(8px);">
+      <div class="text-slate-400 text-sm mb-4">${d.city}, ${d.state} &nbsp;·&nbsp; ${d.zip}</div>
+      <div class="flex items-center justify-center gap-4 mb-3">
+        <span class="text-5xl">${icon}</span>
+        <span class="text-8xl font-black leading-none" style="color:${col}">${d.streak}</span>
+      </div>
+      <div class="text-slate-300 font-medium">consecutive rain day${d.streak !== 1 ? 's' : ''}</div>
+      <div class="text-slate-600 text-xs mt-3">Updated ${fmtTs(d.ts)}</div>
+    </div>`;
+}
+
+async function loadLeaderboard() {
+  try {
+    const res = await fetch('/api/leaderboard');
+    const entries = await res.json();
+    const el = document.getElementById('board');
+    if (!entries.length) {
+      el.innerHTML = '<div class="text-center text-slate-600 text-sm py-10">No data yet — searches will appear here.</div>';
+      return;
+    }
+    const medals = ['🥇','🥈','🥉'];
+    el.innerHTML = entries.map((e, i) => {
+      const wet   = e.streak > 0;
+      const sc    = wet ? '#7dd3fc' : '#94a3b8';
+      const badge = i < 3
+        ? `<span class="text-lg leading-none">${medals[i]}</span>`
+        : `<span class="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold text-slate-500"
+                   style="background:rgba(255,255,255,0.07);">${i + 1}</span>`;
+      return `
+        <div class="flex items-center gap-3 px-4 py-3 ${i % 2 ? 'bg-white/5' : ''} hover:bg-white/10 transition-colors">
+          <div class="w-8 flex justify-center shrink-0">${badge}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-white truncate">${e.city}, ${e.state}</div>
+            <div class="text-xs text-slate-600">${e.zip}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-xl font-bold" style="color:${sc}">${e.streak} <span class="text-base opacity-80">💧</span></div>
+            <div class="text-xs text-slate-700 mt-0.5">${fmtTs(e.ts)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch {}
+}
+
+document.getElementById('form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const zip = document.getElementById('zip').value.trim();
+  if (!/^\d{5}$/.test(zip)) { showError('Please enter a valid 5-digit US zip code.'); return; }
+  showLoading();
+  try {
+    const res = await fetch('/api/streak/' + zip);
+    const data = await res.json();
+    if (!res.ok) {
+      if (data.code === 'NF') showError(`Zip code <strong>${zip}</strong> wasn't found. Please check and try again.`);
+      else if (data.code === 'WX') showError('Weather data is temporarily unavailable. Please try again shortly.');
+      else showError('Something went wrong. Check your internet connection and try again.');
+      return;
+    }
+    showCard(data);
+    loadLeaderboard();
+  } catch {
+    showError('Something went wrong. Check your internet connection and try again.');
+  }
+});
+
+document.getElementById('zip').addEventListener('input', function () {
+  this.value = this.value.replace(/\D/g, '');
+});
+
+(function spawnRain() {
+  const c = document.getElementById('rain');
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement('span');
+    s.className = 'drop';
+    s.style.cssText = [
+      `left:${(Math.random() * 104 - 2).toFixed(1)}%`,
+      `height:${(Math.random() * 55 + 20).toFixed(0)}px`,
+      `animation-duration:${(Math.random() * 1.4 + 0.8).toFixed(2)}s`,
+      `animation-delay:-${(Math.random() * 5).toFixed(2)}s`,
+      `opacity:${(Math.random() * 0.22 + 0.08).toFixed(2)}`,
+    ].join(';');
+    c.appendChild(s);
+  }
+}());
+
+loadLeaderboard();
+</script>
+</body>
+</html>
