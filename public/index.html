@@ -95,25 +95,37 @@ function showCard(d) {
     </div>`;
 }
 
-async function loadLeaderboard() {
+let lbShown = 0;
+let lbTotal = 0;
+
+async function loadLeaderboard(reset = true) {
+  if (reset) { lbShown = 0; lbTotal = 0; }
+  const el = document.getElementById('board');
+  const existing = document.getElementById('lb-more');
+  if (existing) existing.remove();
+
   try {
-    const res = await fetch('/api/leaderboard');
-    const entries = await res.json();
-    const el = document.getElementById('board');
-    if (!entries.length) {
+    const res = await fetch(`/api/leaderboard?limit=10&offset=${lbShown}`);
+    const { entries, total } = await res.json();
+    lbTotal = total;
+
+    if (reset && !entries.length) {
       el.innerHTML = '<div class="text-center text-slate-600 text-sm py-10">No data yet — searches will appear here.</div>';
       return;
     }
+    if (reset) el.innerHTML = '';
+
     const medals = ['🥇','🥈','🥉'];
-    el.innerHTML = entries.map((e, i) => {
-      const wet   = e.streak > 0;
-      const sc    = wet ? '#7dd3fc' : '#94a3b8';
-      const badge = i < 3
-        ? `<span class="text-lg leading-none">${medals[i]}</span>`
+    el.insertAdjacentHTML('beforeend', entries.map((e, i) => {
+      const idx = lbShown + i;
+      const wet = e.streak > 0;
+      const sc  = wet ? '#7dd3fc' : '#94a3b8';
+      const badge = idx < 3
+        ? `<span class="text-lg leading-none">${medals[idx]}</span>`
         : `<span class="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold text-slate-500"
-                   style="background:rgba(255,255,255,0.07);">${i + 1}</span>`;
+                   style="background:rgba(255,255,255,0.07);">${idx + 1}</span>`;
       return `
-        <div class="flex items-center gap-3 px-4 py-3 ${i % 2 ? 'bg-white/5' : ''} hover:bg-white/10 transition-colors">
+        <div class="flex items-center gap-3 px-4 py-3 ${idx % 2 ? 'bg-white/5' : ''} hover:bg-white/10 transition-colors">
           <div class="w-8 flex justify-center shrink-0">${badge}</div>
           <div class="flex-1 min-w-0">
             <div class="font-medium text-white truncate">${e.city}, ${e.state}</div>
@@ -124,7 +136,19 @@ async function loadLeaderboard() {
             <div class="text-xs text-slate-700 mt-0.5">${fmtTs(e.ts)}</div>
           </div>
         </div>`;
-    }).join('');
+    }).join(''));
+
+    lbShown += entries.length;
+
+    if (lbShown < lbTotal) {
+      el.insertAdjacentHTML('beforeend', `
+        <div id="lb-more" class="border-t border-white/5 px-4 py-3 text-center">
+          <button onclick="loadLeaderboard(false)"
+            class="text-sm text-sky-400 hover:text-sky-300 font-medium transition-colors">
+            Show 10 more
+          </button>
+        </div>`);
+    }
   } catch {}
 }
 

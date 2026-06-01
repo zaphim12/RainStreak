@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
-const { getStreak, saveStreak, getLeaderboard } = require('./db');
+const { getStreak, saveStreak, getLeaderboard, getAllZips, setLastRefresh, getLastRefresh } = require('./db');
+const CITY_ZIPS = require('./city-zips');
 
 const MIN_MM = 1.0;
 const PORT = process.env.PORT || 3000;
@@ -57,26 +58,40 @@ app.get('/api/streak/:zip', async (req, res) => {
   }
 });
 
-app.get('/api/leaderboard', (_req, res) => {
-  res.json(getLeaderboard());
+app.get('/api/leaderboard', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  res.json(getLeaderboard(limit, offset));
 });
 
-async function seedIfEmpty() {
-  if (getLeaderboard().length > 0) return;
-  const SEEDS = [
-    '98101','97201','33101','70112','99801','77001','35201','37201',
-    '30301','32301','70801','36601','10001','02101','15201','48201',
-    '40201','46201','38101','32201'
-  ];
-  console.log('Seeding initial leaderboard data...');
-  for (const zip of SEEDS) {
+async function refreshAll() {
+  const zips = [...new Set([...CITY_ZIPS, ...getAllZips()])];
+  console.log(`Daily refresh: updating ${zips.length} ZIP codes...`);
+  for (const zip of zips) {
     await new Promise(r => setTimeout(r, 400));
     try { saveStreak(await computeStreak(zip)); } catch { /* skip */ }
   }
-  console.log('Seeding complete.');
+  setLastRefresh(new Date().toISOString());
+  console.log('Daily refresh complete.');
+}
+
+function scheduleDailyRefresh() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(6, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  setTimeout(() => {
+    refreshAll();
+    setInterval(refreshAll, 24 * 60 * 60 * 1000);
+  }, next - now);
 }
 
 app.listen(PORT, () => {
   console.log(`RainStreak running on http://localhost:${PORT}`);
-  seedIfEmpty();
+  scheduleDailyRefresh();
+  // Run immediately on startup if no refresh has happened in the last 23 hours
+  const last = getLastRefresh();
+  if (!last || Date.now() - new Date(last).getTime() >= 23 * 60 * 60 * 1000) {
+    refreshAll();
+  }
 });

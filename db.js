@@ -26,10 +26,24 @@ function saveStreak(entry) {
   writeDB(db);
 }
 
-function getLeaderboard() {
-  return Object.values(readDB().streaks)
-    .sort((a, b) => b.streak - a.streak || new Date(b.ts) - new Date(a.ts))
-    .slice(0, 10);
+function getLeaderboard(limit = 10, offset = 0) {
+  const all = Object.values(readDB().streaks)
+    .sort((a, b) => b.streak - a.streak || new Date(b.ts) - new Date(a.ts));
+  return { entries: all.slice(offset, offset + limit), total: all.length };
 }
 
-module.exports = { getStreak, saveStreak, getLeaderboard };
+function getAllZips() {
+  return Object.keys(readDB().streaks);
+}
+
+function setLastRefresh(ts) {
+  const db = readDB();
+  db.lastRefresh = ts;
+  writeDB(db);
+}
+
+function getLastRefresh() {
+  return readDB().lastRefresh || null;
+}
+
+module.exports = { getStreak, saveStreak, getLeaderboard, getAllZips, setLastRefresh, getLastRefresh };
