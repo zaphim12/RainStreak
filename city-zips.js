@@ -1,6 +1,6 @@
 // Representative ZIP codes for ~700 major US cities, grouped by state.
 // Used by the daily refresh job. Invalid/unresolvable ZIPs are silently skipped.
-module.exports = [
+export default [
   // Alabama
   '35201','36104','35801','36601','35401','36801','36201','36301','35630','35004',
   // Alaska

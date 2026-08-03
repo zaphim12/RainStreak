@@ -1,0 +1,12 @@
+CREATE TABLE streaks (
+  zip TEXT PRIMARY KEY,
+  city TEXT NOT NULL,
+  state TEXT NOT NULL,
+  streak INTEGER NOT NULL,
+  ts TEXT NOT NULL
+);
+
+CREATE TABLE meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

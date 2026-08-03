@@ -1,0 +1,13 @@
+name = "rainstreak"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rainstreak-db"
+database_id = "f971d88f-3300-48ad-994c-3d6516d76915"
+
+[triggers]
+# Fires every 5 min; each tick refreshes 20 seed zips (see SEED_BATCH_SIZE in src/index.js),
+# so a full pass over all ~700 seed zips takes roughly 3 hours.
+crons = ["*/5 * * * *"]

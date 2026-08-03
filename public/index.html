@@ -55,6 +55,11 @@
   </div>
 
 <script>
+// Replace with your deployed Cloudflare Worker URL (from `wrangler deploy` output,
+// or your custom domain if you attached one). Must stay in sync wherever this
+// file is hosted, including when pasted into a Squarespace code block.
+const API_BASE = 'https://rainstreak.rainstreak.workers.dev';
+
 const fmtTs = iso => new Date(iso).toLocaleString(undefined, {
   month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
 });
@@ -105,7 +110,7 @@ async function loadLeaderboard(reset = true) {
   if (existing) existing.remove();
 
   try {
-    const res = await fetch(`/api/leaderboard?limit=10&offset=${lbShown}`);
+    const res = await fetch(`${API_BASE}/api/leaderboard?limit=10&offset=${lbShown}`);
     const { entries, total } = await res.json();
     lbTotal = total;
 
@@ -158,7 +163,7 @@ document.getElementById('form').addEventListener('submit', async ev => {
   if (!/^\d{5}$/.test(zip)) { showError('Please enter a valid 5-digit US zip code.'); return; }
   showLoading();
   try {
-    const res = await fetch('/api/streak/' + zip);
+    const res = await fetch(API_BASE + '/api/streak/' + zip);
     const data = await res.json();
     if (!res.ok) {
       if (data.code === 'NF') showError(`Zip code <strong>${zip}</strong> wasn't found. Please check and try again.`);
